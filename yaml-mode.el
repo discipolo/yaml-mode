@@ -353,25 +353,44 @@ artificially limited to the value of
           (base-indent 0)
           (nested-indent 0)
           (block-literal-indent 0)
-          (block-literal-line nil))
+          (block-literal-line nil)
+          (is-nested-sequence nil))
+
+      ;; Move up to the first non-blank, non-comment line
       (forward-line -1)
       (while (and (or (looking-at yaml-blank-line-re)
                       (looking-at-p "^[ \t]*#"))
                   (> (point) (point-min)))
         (forward-line -1))
       (setq base-indent (current-indentation))
-      (cond
-       ((looking-at-p "^[ \t]*- *\\(|\\|>\\)")
+
+      ;; Check if the previous line is a block literal
+      (when (looking-at-p yaml-block-literal-re)
         (setq block-literal-indent (+ base-indent 2))  ; Indent just one space past the dash and pipe
         (setq block-literal-line t))
-       ((looking-at-p "^[ \t]*-")
-        (setq nested-indent yaml-indent-offset))
-       ((looking-at-p "^[ \t]*[^ \t#]:")
-        (setq nested-indent yaml-indent-offset)))
 
-      (if block-literal-line
-          block-literal-indent
-        (min (+ base-indent nested-indent) current-indent)))))
+      ;; Check if the previous line is a nested sequence
+      (when (and (not block-literal-line)
+                 (looking-at-p yaml-nested-sequence-re))
+        (setq nested-indent yaml-indent-offset)
+        (setq is-nested-sequence t))
+
+      ;; Check if the previous line is a hash key
+      (when (and (not block-literal-line)
+                 (not is-nested-sequence)
+                 (looking-at-p yaml-hash-key-re))
+        (setq nested-indent yaml-indent-offset))
+
+      ;; Determine the appropriate indentation
+      (cond
+       (block-literal-line
+        block-literal-indent)
+       (is-nested-sequence
+        (if (>= current-indent base-indent)
+            current-indent
+          (+ base-indent nested-indent)))
+       (t
+        (min (+ base-indent nested-indent) current-indent))))))
 
 (defun yaml-indent-line ()
   "Indent current line as YAML code."
