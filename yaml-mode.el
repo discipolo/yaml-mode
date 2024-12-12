@@ -346,13 +346,16 @@ artificially limited to the value of
 
 ;; Indentation and electric keys
 
+
 (defun yaml-compute-indentation ()
   "Calculate the maximum sensible indentation for the current line."
   (save-excursion
     (beginning-of-line)
-    (if (looking-at yaml-document-delimiter-re) 0
+    (if (looking-at yaml-document-delimiter-re)
+        0
       (forward-line -1)
-      (while (and (looking-at yaml-blank-line-re)
+      (while (and (or (looking-at yaml-blank-line-re)
+                      (looking-at-p "^[ \t]*#"))
                   (> (point) (point-min)))
         (forward-line -1))
       (+ (current-indentation)
@@ -366,15 +369,43 @@ The first time this command is used, the line will be indented to the
 maximum sensible indentation.  Each immediately subsequent usage will
 back-dent the line by `yaml-indent-offset' spaces.  On reaching column
 0, it will cycle back to the maximum sensible indentation."
-  (interactive "*")
-  (let ((ci (current-indentation))
-        (need (yaml-compute-indentation)))
+  (interactive)
+  (let ((indent-col 0)
+        (current-line (line-number-at-pos))
+        (max-lines 100)
+        (found-line nil))
     (save-excursion
-      (if (and (equal last-command this-command) (/= ci 0))
-          (indent-line-to (* (/ (- ci 1) yaml-indent-offset) yaml-indent-offset))
-        (indent-line-to need)))
-    (if (< (current-column) (current-indentation))
-        (forward-to-indentation 0))))
+      (beginning-of-line)
+      (condition-case nil
+          (while (and (<= (line-number-at-pos) (+ current-line max-lines))
+                      (not found-line))
+            (forward-line -1)
+            ;; Skip comment lines and blank lines
+            (when (and (not (looking-at-p "^[ \t]*#"))
+                       (not (looking-at-p yaml-blank-line-re)))
+              (when (looking-at-p "^[ \t]*[^ \t#]")
+                (setq indent-col (current-indentation))
+                (when (looking-at-p ".*:$")
+                  (setq indent-col (+ indent-col yaml-indent-offset)))
+                (setq found-line t)))
+            ;; If we reach the top of the buffer, break the loop
+            (when (bobp)
+              (setq found-line t)
+              (setq indent-col 0)))
+        (error nil)))
+    (when (not found-line)
+      (setq indent-col 0))
+    (indent-line-to indent-col)))
+
+(defun yaml-indent-region (start end)
+  "Indent each line in the region from START to END."
+  (interactive "r")
+  (save-excursion
+    (goto-char start)
+    (while (< (point) end)
+      (yaml-indent-line)
+      (forward-line 1))
+    (message "Indented region from %d to %d" start end)))
 
 (defun yaml-electric-backspace (arg)
   "Delete characters or back-dent the current line.
