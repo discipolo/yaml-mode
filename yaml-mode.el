@@ -345,6 +345,33 @@ artificially limited to the value of
 
 
 ;; Indentation and electric keys
+(defvar yaml-indent-line-state nil
+  "State variable to track consecutive calls to `yaml-indent-line`.")
+
+(defun yaml-indent-line ()
+  "Indent the current line.
+The first time this command is used, the line will be indented to the
+maximum sensible indentation.  Each immediately subsequent usage will
+back-dent the line by `yaml-indent-offset' spaces.  On reaching column
+0, it will cycle back to the maximum sensible indentation."
+  (interactive "*")
+  (let ((current-indent (current-indentation))
+        (computed-indent (yaml-compute-indentation)))
+    (save-excursion
+      (if (and (eq last-command 'yaml-indent-line) (/= current-indent 0))
+          ;; Consecutive calls: back-dent by `yaml-indent-offset'
+          (progn
+            (setq yaml-indent-line-state (if yaml-indent-line-state
+                                            (max 0 (- yaml-indent-line-state yaml-indent-offset))
+                                          (- current-indent yaml-indent-offset)))
+            (indent-line-to yaml-indent-line-state))
+        ;; First call: indent to the maximum sensible indentation
+        (indent-line-to computed-indent)
+        (setq yaml-indent-line-state computed-indent)))
+    (if (< (current-column) (current-indentation))
+        (forward-to-indentation 0))
+    (setq this-command 'yaml-indent-line)))
+
 (defun yaml-compute-indentation ()
   "Calculate the maximum sensible indentation for the current line."
   (save-excursion
@@ -391,14 +418,6 @@ artificially limited to the value of
           (+ base-indent nested-indent)))
        (t
         (min (+ base-indent nested-indent) current-indent))))))
-
-(defun yaml-indent-line ()
-  "Indent current line as YAML code."
-  (interactive)
-  (let ((current-indent (current-indentation))
-        (computed-indent (yaml-compute-indentation)))
-    (unless (= current-indent computed-indent)
-      (indent-line-to computed-indent))))
 
 (defun yaml-indent-region (start end)
   "Indent each line in the region from START to END."
