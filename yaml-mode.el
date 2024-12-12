@@ -349,34 +349,37 @@ artificially limited to the value of
   "Calculate the maximum sensible indentation for the current line."
   (save-excursion
     (beginning-of-line)
-    (cl-case t
-      ((looking-at yaml-document-delimiter-re) 0)
-      (t
-       (forward-line -1)
-       (while (and (or (looking-at yaml-blank-line-re)
-                       (looking-at-p "^[ \t]*#"))
-                   (> (point) (point-min)))
-         (forward-line -1))
-       (let ((base-indent (current-indentation)))
-         (+ base-indent
-            (if (looking-at yaml-nested-map-re) yaml-indent-offset 0)
-            (if (looking-at yaml-nested-sequence-re) yaml-indent-offset 0)
-            (if (looking-at yaml-block-literal-re)
-                (progn
-                  (forward-line 1)
-                  (while (and (looking-at-p "^[ \t]*#")
-                              (> (point) (point-min)))
-                    (forward-line -1))
-                  (if (looking-at-p "^[ \t]*- *|")
-                      (+ yaml-indent-offset 2)  ; Indent 2 spaces after '- |'
-                    yaml-indent-offset))
-              0)))))))
+    (let ((current-indent (current-indentation))
+          (base-indent 0)
+          (nested-indent 0)
+          (block-literal-indent 0)
+          (block-literal-line nil))
+      (forward-line -1)
+      (while (and (or (looking-at yaml-blank-line-re)
+                      (looking-at-p "^[ \t]*#"))
+                  (> (point) (point-min)))
+        (forward-line -1))
+      (setq base-indent (current-indentation))
+      (cond
+       ((looking-at-p "^[ \t]*- *\\(|\\|>\\)")
+        (setq block-literal-indent (+ base-indent 2))  ; Indent just one space past the dash and pipe
+        (setq block-literal-line t))
+       ((looking-at-p "^[ \t]*-")
+        (setq nested-indent yaml-indent-offset))
+       ((looking-at-p "^[ \t]*[^ \t#]:")
+        (setq nested-indent yaml-indent-offset)))
+
+      (if block-literal-line
+          block-literal-indent
+        (min (+ base-indent nested-indent) current-indent)))))
 
 (defun yaml-indent-line ()
   "Indent current line as YAML code."
   (interactive)
-  (let ((indent-col (yaml-compute-indentation)))
-    (indent-line-to indent-col)))
+  (let ((current-indent (current-indentation))
+        (computed-indent (yaml-compute-indentation)))
+    (unless (= current-indent computed-indent)
+      (indent-line-to computed-indent))))
 
 (defun yaml-indent-region (start end)
   "Indent each line in the region from START to END."
@@ -384,7 +387,10 @@ artificially limited to the value of
   (save-excursion
     (goto-char start)
     (while (< (point) end)
-      (yaml-indent-line)
+      (let ((current-indent (current-indentation))
+            (computed-indent (yaml-compute-indentation)))
+        (unless (= current-indent computed-indent)
+          (indent-line-to computed-indent)))
       (forward-line 1)))
   (message "Indented region from %d to %d" start end))
 
