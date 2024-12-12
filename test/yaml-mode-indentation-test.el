@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; emacs -Q --batch -l ert -L . -l test/test-yaml-mode -f ert-run-tests-batch
+;; emacs -Q --batch -l ert -L . -l test/yaml-mode-indentation-test.el -f ert-run-tests-batch
 
 (require 'ert)
 
