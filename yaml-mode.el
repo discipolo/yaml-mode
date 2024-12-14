@@ -345,28 +345,6 @@ artificially limited to the value of
 
 
 ;; Indentation and electric keys
-(defvar yaml-indent-line-state nil
-  "State variable to track consecutive calls to `yaml-indent-line`.")
-
-(defun yaml-indent-line ()
-  "Indent the current line.
-The first time this command is used, the line will be indented to the
-maximum sensible indentation.  Each immediately subsequent usage will
-back-dent the line by `yaml-indent-offset' spaces.  On reaching column
-0, it will cycle back to the maximum sensible indentation."
-  (interactive "*")
-  (let ((current-indent (current-indentation))
-        (computed-indent (yaml-compute-indentation)))
-    (save-excursion
-      (if (and (eq last-command 'yaml-indent-line) (/= current-indent 0))
-    ;; Consecutive calls: back-dent by `yaml-indent-offset'
-    (indent-line-to (max 0 (- current-indent yaml-indent-offset)))
-  ;; First call: indent to the maximum sensible indentation
-  (indent-line-to computed-indent)))
-    (if (< (current-column) (current-indentation))
-        (forward-to-indentation 0))
-    (setq this-command 'yaml-indent-line)))
-
 (defun yaml-compute-indentation ()
   "Calculate the maximum sensible indentation for the current line."
   (save-excursion
@@ -413,6 +391,25 @@ back-dent the line by `yaml-indent-offset' spaces.  On reaching column
           (+ base-indent nested-indent)))
        (t
         (min (+ base-indent nested-indent) current-indent))))))
+
+(defun yaml-indent-line ()
+  "Indent the current line.
+The first time this command is used, the line will be indented to the
+maximum sensible indentation.  Each immediately subsequent usage will
+back-dent the line by `yaml-indent-offset' spaces.  On reaching column
+0, it will cycle back to the maximum sensible indentation."
+  (interactive "*")
+  (let ((current-indent (current-indentation))
+        (computed-indent (yaml-compute-indentation)))
+    (save-excursion
+      (if (and (eq last-command 'yaml-indent-line) (/= current-indent 0))
+    ;; Consecutive calls: back-dent by `yaml-indent-offset'
+    (indent-line-to (max 0 (- current-indent yaml-indent-offset)))
+  ;; First call: indent to the maximum sensible indentation
+  (indent-line-to computed-indent)))
+    (if (< (current-column) (current-indentation))
+        (forward-to-indentation 0))
+    (setq this-command 'yaml-indent-line)))
 
 (defun yaml-indent-region (start end)
   "Indent each line in the region from START to END."
