@@ -408,8 +408,7 @@ back-dent the line by `yaml-indent-offset' spaces.  On reaching column
   ;; First call: indent to the maximum sensible indentation
   (indent-line-to computed-indent)))
     (if (< (current-column) (current-indentation))
-        (forward-to-indentation 0))
-    (setq this-command 'yaml-indent-line)))
+        (forward-to-indentation 0))))
 
 (defun yaml-indent-region (start end)
   "Indent each line in the region from START to END."
